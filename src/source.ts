@@ -45,12 +45,18 @@ export async function listSourceFiles(
   rootDir: string,
   extensions: readonly string[],
 ): Promise<readonly string[]> {
-  const response = await fetch(`${GITHUB_TREE_API_BASE_URL}/${sourceBranch}?recursive=1`, {
-    headers: {
-      Accept: "application/vnd.github+json",
-      "User-Agent": "typesense-api-extractor",
-    },
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${GITHUB_TREE_API_BASE_URL}/${sourceBranch}?recursive=1`, {
+      headers: {
+        Accept: "application/vnd.github+json",
+        "User-Agent": "typesense-api-extractor",
+      },
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Could not list GitHub source files for ${sourceBranch}: ${message}`);
+  }
   if (!response.ok) {
     throw new Error(
       `Could not list GitHub source files for ${sourceBranch}: ${response.status} ${response.statusText}`,

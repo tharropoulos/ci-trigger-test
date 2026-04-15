@@ -3,12 +3,18 @@ import path from "node:path";
 
 export async function readTextFile(filePath: string): Promise<string> {
   if (filePath.startsWith("https://") || filePath.startsWith("http://")) {
-    const response = await fetch(filePath, {
-      headers: {
-        "User-Agent": "typesense-api-extractor",
-        Accept: "text/plain",
-      },
-    });
+    let response: Response;
+    try {
+      response = await fetch(filePath, {
+        headers: {
+          "User-Agent": "typesense-api-extractor",
+          Accept: "text/plain",
+        },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Could not read remote file ${filePath}: ${message}`);
+    }
     if (!response.ok) {
       throw new Error(
         `Could not read remote file ${filePath}: ${response.status} ${response.statusText}`,
