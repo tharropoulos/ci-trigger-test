@@ -1,5 +1,5 @@
 import { MemoryDiagnosticCollector } from "./diagnostics.js";
-import { ParameterCollector, collectPathParams } from "./analysis/collector.js";
+import { ParameterCollector } from "./analysis/collector.js";
 import { createDebugLogger } from "./analysis/debug.js";
 import { analyzeFunction } from "./analysis/traversal.js";
 import type {
@@ -22,6 +22,9 @@ export function extractRouteData(
   const definition = functions.get(route.handler);
   const routeKey = `${route.method} ${route.pathTemplate}`;
   const debug = createDebugLogger(routeKey, debugConfig);
+  const collector = new ParameterCollector(route);
+  const initialPathParams = collector.snapshot("path");
+  let pathParams = initialPathParams;
 
   if (definition === undefined) {
     diagnostics.add({
@@ -33,7 +36,7 @@ export function extractRouteData(
     });
     return {
       route,
-      pathParams: collectPathParams(route),
+      pathParams: initialPathParams,
       queryParams: [],
       bodyParams: [],
       diagnostics: diagnostics.snapshot(),
@@ -46,36 +49,33 @@ export function extractRouteData(
     functions,
     diagnostics,
     maxCallDepth,
-    pathParamNames: new Set(
-      collectPathParams(route).map((parameter) => parameter.canonicalPath),
-    ),
+    pathParamNames: new Set(initialPathParams.map((parameter) => parameter.canonicalPath)),
   };
 
-  const collector = new ParameterCollector();
   const visited = new Set<string>();
   analyzeFunction(definition, context, collector, visited, 0, routeKey, debug);
+  pathParams = collector.snapshot("path");
+  debug(
+    `path params => ${
+      pathParams.map((item) => item.canonicalPath).join(", ") || "(none)"
+    }`,
+  );
+  const queryParams = collector.snapshot("query");
+  const bodyParams = collector.snapshot("body");
   debug(
     `query params => ${
-      collector
-        .snapshot("query")
-        .map((item) => item.canonicalPath)
-        .join(", ") || "(none)"
+      queryParams.map((item) => item.canonicalPath).join(", ") || "(none)"
     }`,
   );
   debug(
-    `body params => ${
-      collector
-        .snapshot("body")
-        .map((item) => item.canonicalPath)
-        .join(", ") || "(none)"
-    }`,
+    `body params => ${bodyParams.map((item) => item.canonicalPath).join(", ") || "(none)"}`,
   );
 
   return {
     route,
-    pathParams: collectPathParams(route),
-    queryParams: collector.snapshot("query"),
-    bodyParams: collector.snapshot("body"),
+    pathParams,
+    queryParams,
+    bodyParams,
     diagnostics: diagnostics.snapshot(),
   };
 }

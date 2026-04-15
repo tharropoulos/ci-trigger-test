@@ -7,10 +7,27 @@ import type {
 } from "../types.js";
 
 export class ParameterCollector {
+  readonly #path = new Map<string, CollectedParameter>();
   readonly #query = new Map<string, CollectedParameter>();
   readonly #body = new Map<string, CollectedParameter>();
 
+  constructor(route: RouteRegistration) {
+    for (const parameter of collectPathParams(route)) {
+      this.#path.set(parameter.canonicalPath, parameter);
+    }
+  }
+
   add(parameter: CollectedParameter): void {
+    if (parameter.location === "path") {
+      this.#path.set(
+        parameter.canonicalPath,
+        mergeCollectedParameter(
+          this.#path.get(parameter.canonicalPath),
+          parameter,
+        ),
+      );
+      return;
+    }
     if (parameter.location === "query") {
       this.#query.set(
         parameter.canonicalPath,
@@ -32,13 +49,20 @@ export class ParameterCollector {
     }
   }
 
-  snapshot(
-    location: Omit<ParameterLocation, "path">,
-  ): readonly CollectedParameter[] {
-    if (location === "query") {
-      return [...this.#query.values()];
+  snapshot(location: ParameterLocation): readonly CollectedParameter[] {
+    switch (location) {
+      case "path":
+        return [...this.#path.values()];
+      case "query":
+        return [...this.#query.values()];
+      case "body":
+        return [...this.#body.values()];
+      default: {
+        const _exhaustiveCheck: never = location;
+        // eslint-disable-next-line
+        throw new Error(`Unhandled case: ${_exhaustiveCheck}`);
+      }
     }
-    return [...this.#body.values()];
   }
 }
 
@@ -81,7 +105,7 @@ function mergeValueTypes(
   return left;
 }
 
-export function collectPathParams(
+function collectPathParams(
   route: RouteRegistration,
 ): readonly CollectedParameter[] {
   return route.pathTemplate
