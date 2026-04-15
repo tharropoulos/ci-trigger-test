@@ -17,126 +17,159 @@ export function resolveExpressionNode(
   const normalizedNode = unwrapExpressionNode(expressionNode);
 
   const requestRoot = resolveRequestRoot(normalizedNode);
-  if (requestRoot !== undefined) {
-    return requestRoot;
-  }
+  if (requestRoot !== undefined) return requestRoot;
 
-  const directAlias =
-    normalizedNode.type === "identifier"
-      ? aliases.get(normalizedNode.text)
-      : undefined;
-  if (directAlias !== undefined) {
-    return directAlias;
-  }
+  const directAlias = getDirectAlias(normalizedNode, aliases);
+  if (directAlias !== undefined) return directAlias;
 
   if (normalizedNode.type === "call_expression") {
-    const callInfo = parseCallExpressionNode(normalizedNode);
-    if (callInfo === undefined) {
-      return undefined;
-    }
-
-    if (callInfo.methodName === undefined) {
-      const calleeName = extractTerminalName(callInfo.calleeName);
-      if (
-        callInfo.calleeName === "nlohmann::json::parse" ||
-        calleeName === "parse"
-      ) {
-        const firstArgument = callInfo.arguments[0];
-        if (firstArgument !== undefined) {
-          const firstTarget = resolveExpressionNode(
-            firstArgument,
-            aliases,
-            constants,
-          );
-          if (firstTarget?.location === "body-root") {
-            return { location: "body-root", segments: [] };
-          }
-        }
-      }
-      return undefined;
-    }
-
-    if (callInfo.baseNode === undefined) {
-      return undefined;
-    }
-
-    const baseTarget = resolveExpressionNode(
-      callInfo.baseNode,
-      aliases,
-      constants,
-    );
-    if (baseTarget === undefined) {
-      return undefined;
-    }
-
-    if (callInfo.methodName === "items") {
-      return baseTarget;
-    }
-
-    if (callInfo.methodName === "value") {
-      if (callInfo.arguments.length === 0) {
-        return baseTarget;
-      }
-
-      const firstArgument = callInfo.arguments[0];
-      const segment =
-        firstArgument === undefined
-          ? undefined
-          : resolveStringTokenNode(firstArgument, constants);
-      if (segment === undefined) {
-        return undefined;
-      }
-
-      return {
-        location: baseTarget.location,
-        segments: [...baseTarget.segments, segment],
-      };
-    }
-
-    if (callInfo.methodName === "find" || callInfo.methodName === "at") {
-      const firstArgument = callInfo.arguments[0];
-      const segment =
-        firstArgument === undefined
-          ? undefined
-          : resolveStringTokenNode(firstArgument, constants);
-      if (segment === undefined) {
-        return undefined;
-      }
-      return {
-        location: baseTarget.location,
-        segments: [...baseTarget.segments, segment],
-      };
-    }
-
-    if (
-      callInfo.methodName === "count" ||
-      callInfo.methodName === "contains" ||
-      callInfo.methodName === "key"
-    ) {
-      return undefined;
-    }
+    return resolveCallExpression(normalizedNode, aliases, constants);
   }
 
   if (normalizedNode.type === "subscript_expression") {
-    const baseNode = childForField(normalizedNode, "argument");
-    const indexNode = extractSubscriptIndexNode(normalizedNode);
-    if (baseNode === undefined || indexNode === undefined) {
-      return undefined;
-    }
-
-    const baseTarget = resolveExpressionNode(baseNode, aliases, constants);
-    if (baseTarget === undefined) {
-      return undefined;
-    }
-
-    const segment = resolveStringTokenNode(indexNode, constants) ?? "[]";
-    return {
-      location: baseTarget.location,
-      segments: [...baseTarget.segments, segment],
-    };
+    return resolveSubscriptExpression(normalizedNode, aliases, constants);
   }
 
   return undefined;
+}
+
+function getDirectAlias(
+  node: SyntaxNode,
+  aliases: ReadonlyMap<string, AliasTarget>,
+): AliasTarget | undefined {
+  if (node.type !== "identifier") {
+    return undefined;
+  }
+  return aliases.get(node.text);
+}
+
+function resolveCallExpression(
+  node: SyntaxNode,
+  aliases: ReadonlyMap<string, AliasTarget>,
+  constants: ReadonlyMap<string, string>,
+): AliasTarget | undefined {
+  const callInfo = parseCallExpressionNode(node);
+  if (callInfo === undefined) {
+    return undefined;
+  }
+
+  if (callInfo.methodName === undefined) {
+    return resolveFreeCallExpression(callInfo, aliases, constants);
+  }
+
+  return resolveMethodCallExpression(callInfo, aliases, constants);
+}
+
+function resolveFreeCallExpression(
+  callInfo: NonNullable<ReturnType<typeof parseCallExpressionNode>>,
+  aliases: ReadonlyMap<string, AliasTarget>,
+  constants: ReadonlyMap<string, string>,
+): AliasTarget | undefined {
+  const calleeName = extractTerminalName(callInfo.calleeName);
+  const isJsonParseCall =
+    callInfo.calleeName === "nlohmann::json::parse" || calleeName === "parse";
+  if (!isJsonParseCall) {
+    return undefined;
+  }
+
+  const firstArgument = callInfo.arguments[0];
+  if (firstArgument === undefined) {
+    return undefined;
+  }
+
+  const firstTarget = resolveExpressionNode(firstArgument, aliases, constants);
+  if (firstTarget?.location !== "body-root") {
+    return undefined;
+  }
+
+  return { location: "body-root", segments: [] };
+}
+
+function resolveMethodCallExpression(
+  callInfo: NonNullable<ReturnType<typeof parseCallExpressionNode>>,
+  aliases: ReadonlyMap<string, AliasTarget>,
+  constants: ReadonlyMap<string, string>,
+): AliasTarget | undefined {
+  if (callInfo.baseNode === undefined) {
+    return undefined;
+  }
+
+  const baseTarget = resolveExpressionNode(
+    callInfo.baseNode,
+    aliases,
+    constants,
+  );
+  if (baseTarget === undefined) {
+    return undefined;
+  }
+
+  if (callInfo.methodName === "items") {
+    return baseTarget;
+  }
+
+  if (callInfo.methodName === "value") {
+    if (callInfo.arguments.length === 0) {
+      return baseTarget;
+    }
+    return resolveIndexedMethodTarget(
+      baseTarget,
+      callInfo.arguments[0],
+      constants,
+    );
+  }
+
+  if (callInfo.methodName === "find" || callInfo.methodName === "at") {
+    return resolveIndexedMethodTarget(
+      baseTarget,
+      callInfo.arguments[0],
+      constants,
+    );
+  }
+
+  return undefined;
+}
+
+function resolveIndexedMethodTarget(
+  baseTarget: AliasTarget,
+  firstArgument: SyntaxNode | undefined,
+  constants: ReadonlyMap<string, string>,
+): AliasTarget | undefined {
+  if (firstArgument === undefined) {
+    return undefined;
+  }
+
+  const segment = resolveStringTokenNode(firstArgument, constants);
+  if (segment === undefined) {
+    return undefined;
+  }
+
+  return {
+    location: baseTarget.location,
+    segments: [...baseTarget.segments, segment],
+  };
+}
+
+function resolveSubscriptExpression(
+  node: SyntaxNode,
+  aliases: ReadonlyMap<string, AliasTarget>,
+  constants: ReadonlyMap<string, string>,
+): AliasTarget | undefined {
+  const baseNode = childForField(node, "argument");
+  const indexNode = extractSubscriptIndexNode(node);
+  if (baseNode === undefined || indexNode === undefined) {
+    return undefined;
+  }
+
+  const baseTarget = resolveExpressionNode(baseNode, aliases, constants);
+  if (baseTarget === undefined) {
+    return undefined;
+  }
+
+  const segment = resolveStringTokenNode(indexNode, constants) ?? "[]";
+  return {
+    location: baseTarget.location,
+    segments: [...baseTarget.segments, segment],
+  };
 }
 
 function extractTerminalName(value: string): string | undefined {
@@ -170,18 +203,7 @@ export function resolveStringTokenNode(
   }
 
   if (normalizedNode.type === "concatenated_string") {
-    let combined = "";
-    for (const child of normalizedNode.namedChildren) {
-      if (child.type !== "string_literal") {
-        return undefined;
-      }
-      const value = extractStringLiteral(child.text);
-      if (value === undefined) {
-        return undefined;
-      }
-      combined += value;
-    }
-    return combined;
+    return resolveConcatenatedString(normalizedNode);
   }
 
   if (normalizedNode.type === "identifier") {
@@ -189,18 +211,41 @@ export function resolveStringTokenNode(
   }
 
   if (normalizedNode.type === "qualified_identifier") {
-    const tokenText = normalizedNode.text;
-    if (tokenText.startsWith("fields::")) {
-      return tokenText.slice("fields::".length);
-    }
-
-    const terminalName = extractTerminalName(tokenText);
-    if (terminalName !== undefined) {
-      return constants.get(terminalName);
-    }
+    return resolveQualifiedIdentifierToken(normalizedNode.text, constants);
   }
 
   return undefined;
+}
+
+function resolveConcatenatedString(node: SyntaxNode): string | undefined {
+  return node.namedChildren.reduce<string | undefined>((combined, child) => {
+    if (combined === undefined || child.type !== "string_literal") {
+      return undefined;
+    }
+
+    const value = extractStringLiteral(child.text);
+    if (value === undefined) {
+      return undefined;
+    }
+
+    return `${combined}${value}`;
+  }, "");
+}
+
+function resolveQualifiedIdentifierToken(
+  tokenText: string,
+  constants: ReadonlyMap<string, string>,
+): string | undefined {
+  if (tokenText.startsWith("fields::")) {
+    return tokenText.slice("fields::".length);
+  }
+
+  const terminalName = extractTerminalName(tokenText);
+  if (terminalName === undefined) {
+    return undefined;
+  }
+
+  return constants.get(terminalName);
 }
 
 export function bootstrapAliases(
@@ -210,8 +255,12 @@ export function bootstrapAliases(
   const aliases = new Map(inherited);
 
   parameters
-    .filter((parameter) => parameter.typeText.includes("std::map<std::string, std::string>"))
-    .forEach((parameter) => aliases.set(parameter.name, { location: "query-root", segments: [] }));
+    .filter((parameter) =>
+      parameter.typeText.includes("std::map<std::string, std::string>"),
+    )
+    .forEach((parameter) =>
+      aliases.set(parameter.name, { location: "query-root", segments: [] }),
+    );
 
   return aliases;
 }
@@ -233,8 +282,10 @@ function resolveRequestRoot(node: SyntaxNode): AliasTarget | undefined {
   if (fieldParts.fieldName === "params") {
     return { location: "params-root", segments: [] };
   }
+
   if (fieldParts.fieldName === "body") {
     return { location: "body-root", segments: [] };
   }
+
   return undefined;
 }
