@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-15T09:57:29.084Z",
+  "generatedAt": "2026-04-16T09:46:26.675Z",
   "rootDir": "",
   "routeFile": "src/main/typesense_server.cpp",
   "routes": [
@@ -501,19 +501,6 @@
               "filePath": "https://raw.githubusercontent.com/typesense/typesense/v30/src/collection_manager.cpp",
               "line": 1843,
               "column": 50
-            }
-          ]
-        },
-        {
-          "name": "fields[]",
-          "canonicalPath": "fields[]",
-          "location": "body",
-          "valueType": "string[]",
-          "sources": [
-            {
-              "filePath": "https://raw.githubusercontent.com/typesense/typesense/v30/src/field.cpp",
-              "line": 486,
-              "column": 24
             }
           ]
         },

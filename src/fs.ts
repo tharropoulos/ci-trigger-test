@@ -2,19 +2,13 @@ import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 export async function readTextFile(filePath: string): Promise<string> {
-  if (filePath.startsWith("https://") || filePath.startsWith("http://")) {
-    let response: Response;
-    try {
-      response = await fetch(filePath, {
-        headers: {
-          "User-Agent": "typesense-api-extractor",
-          Accept: "text/plain",
-        },
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Could not read remote file ${filePath}: ${message}`);
-    }
+  if (filePath.startsWith("https://")) {
+    const response = await fetch(filePath, {
+      headers: {
+        "User-Agent": "typesense-api-extractor",
+        Accept: "text/plain",
+      },
+    });
     if (!response.ok) {
       throw new Error(
         `Could not read remote file ${filePath}: ${response.status} ${response.statusText}`,
@@ -26,12 +20,17 @@ export async function readTextFile(filePath: string): Promise<string> {
   return readFile(filePath, "utf8");
 }
 
-export async function writeTextFile(filePath: string, contents: string): Promise<void> {
+export async function writeTextFile(
+  filePath: string,
+  contents: string,
+): Promise<void> {
   await mkdir(path.dirname(filePath), { recursive: true });
   await writeFile(filePath, contents, "utf8");
 }
 
-export async function listFilesRecursive(rootPath: string): Promise<readonly string[]> {
+export async function listFilesRecursive(
+  rootPath: string,
+): Promise<readonly string[]> {
   const entries = await readdir(rootPath, { withFileTypes: true });
   const nestedFiles = await Promise.all(
     entries.map(async (entry) => {

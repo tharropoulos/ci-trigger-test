@@ -76,7 +76,6 @@ export interface ApiRouteSpec {
 }
 
 export interface ApiSpec {
-  readonly generatedAt: string;
   readonly rootDir: string;
   readonly routeFile: string;
   readonly routes: readonly ApiRouteSpec[];
@@ -85,6 +84,7 @@ export interface ApiSpec {
 
 export type RouteOverrideParameter = ConfigRouteOverrideParameter;
 export type RouteOverride = ConfigRouteOverride;
+export type { ParameterLocation };
 
 export interface DebugConfig {
   readonly enabled: boolean;
@@ -99,6 +99,7 @@ export interface ExtractorConfig {
   readonly diagnosticsOutputPath: string | undefined;
   readonly baseUrl: string | undefined;
   readonly maxCallDepth: number;
+  readonly failOnDiagnostics: boolean;
   readonly failOnUnresolved: boolean;
   readonly blacklist: {
     readonly paths: readonly string[];
@@ -115,6 +116,7 @@ export interface CliOptions {
   readonly outputPath: string | undefined;
   readonly baseUrl: string | undefined;
   readonly maxCallDepth: number | undefined;
+  readonly failOnDiagnostics: boolean | undefined;
   readonly failOnUnresolved: boolean | undefined;
   readonly verbose: boolean;
   readonly debugRoute: string | undefined;

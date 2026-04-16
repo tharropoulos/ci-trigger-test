@@ -46,6 +46,8 @@ export async function loadConfig(
         : path.resolve(configDir, parsedConfig.diagnostics_output_path),
     baseUrl: cliOptions.baseUrl ?? parsedConfig.base_url,
     maxCallDepth: cliOptions.maxCallDepth ?? parsedConfig.max_call_depth,
+    failOnDiagnostics:
+      cliOptions.failOnDiagnostics ?? parsedConfig.fail_on_diagnostics,
     failOnUnresolved:
       cliOptions.failOnUnresolved ?? parsedConfig.fail_on_unresolved,
     blacklist: parsedConfig.blacklist,

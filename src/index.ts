@@ -45,10 +45,15 @@ export async function runExtraction(cliOptions: CliOptions): Promise<ApiSpec> {
   }
   specStep.done(config.outputPath);
 
-  if (config.failOnUnresolved) {
-    if (diagnostics.some((diagnostic) => diagnostic.level === "error")) {
-      throw new Error("Extraction produced unresolved handler errors.");
-    }
+  if (config.failOnDiagnostics && diagnostics.length > 0) {
+    throw new Error("Extraction produced diagnostics.");
+  }
+
+  if (
+    config.failOnUnresolved &&
+    diagnostics.some((diagnostic) => diagnostic.level === "error")
+  ) {
+    throw new Error("Extraction produced unresolved handler errors.");
   }
 
   return spec;

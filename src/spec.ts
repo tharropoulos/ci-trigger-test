@@ -39,7 +39,6 @@ export function buildSpec(
     );
 
   return {
-    generatedAt: new Date().toISOString(),
     rootDir: config.rootDir,
     routeFile: config.routeFile,
     routes: sortedReadonly(routes, compareRoutes),
