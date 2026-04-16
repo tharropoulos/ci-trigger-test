@@ -1,6 +1,5 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { parseArgs } from "node:util";
 import type {
   ApiParameterSpec,
   ApiRouteSpec,
@@ -35,44 +34,24 @@ interface ComparableRoute {
   readonly params: ReadonlyMap<string, ValueType | undefined>;
 }
 
-async function main(): Promise<void> {
-  const options = parseCli(process.argv.slice(2));
-  const previous = await readSpec(options.previous);
-  const next = await readSpec(options.next);
+export async function runSemanticDiff(options: {
+  readonly previousPath: string;
+  readonly nextPath: string;
+  readonly jsonOutputPath: string | undefined;
+  readonly markdownOutputPath: string | undefined;
+}): Promise<DiffSummary> {
+  const previous = await readSpec(options.previousPath);
+  const next = await readSpec(options.nextPath);
   const summary = diffSpecs(previous, next);
 
-  if (options.jsonOutput !== undefined) {
-    await writeTextFile(options.jsonOutput, `${JSON.stringify(summary, null, 2)}\n`);
+  if (options.jsonOutputPath !== undefined) {
+    await writeTextFile(options.jsonOutputPath, `${JSON.stringify(summary, null, 2)}\n`);
   }
-  if (options.markdownOutput !== undefined) {
-    await writeTextFile(options.markdownOutput, renderMarkdown(summary));
-  }
-
-  process.stdout.write(`${JSON.stringify(summary)}\n`);
-}
-
-function parseCli(argv: readonly string[]) {
-  const { values } = parseArgs({
-    args: [...argv],
-    options: {
-      previous: { type: "string" },
-      next: { type: "string" },
-      "json-output": { type: "string" },
-      "markdown-output": { type: "string" },
-    },
-    strict: true,
-  });
-
-  if (values.previous === undefined || values.next === undefined) {
-    throw new Error("Both --previous and --next are required.");
+  if (options.markdownOutputPath !== undefined) {
+    await writeTextFile(options.markdownOutputPath, renderMarkdown(summary));
   }
 
-  return {
-    previous: values.previous,
-    next: values.next,
-    jsonOutput: values["json-output"],
-    markdownOutput: values["markdown-output"],
-  };
+  return summary;
 }
 
 async function readSpec(filePath: string): Promise<ApiSpec> {
@@ -243,9 +222,3 @@ async function writeTextFile(filePath: string, contents: string): Promise<void> 
   await mkdir(path.dirname(filePath), { recursive: true });
   await writeFile(filePath, contents, "utf8");
 }
-
-main().catch((error: unknown) => {
-  const message = error instanceof Error ? error.message : String(error);
-  process.stderr.write(`${message}\n`);
-  process.exitCode = 1;
-});

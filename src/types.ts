@@ -123,6 +123,16 @@ export interface CliOptions {
   readonly json: boolean;
 }
 
+export interface SemanticDiffCliOptions {
+  readonly command: "semantic-diff";
+  readonly previousPath: string;
+  readonly nextPath: string;
+  readonly jsonOutputPath: string | undefined;
+  readonly markdownOutputPath: string | undefined;
+}
+
+export type CommandLineOptions = CliOptions | SemanticDiffCliOptions;
+
 export interface RouteRegistration {
   readonly method: HttpMethod;
   readonly pathTemplate: string;
