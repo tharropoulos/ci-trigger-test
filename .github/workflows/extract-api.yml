@@ -38,6 +38,9 @@ jobs:
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
 
+      - name: Build CLI
+        run: npm run build
+
       - name: Save previous extracted spec
         run: |
           if git cat-file -e HEAD:output/typesense_api_spec.json 2>/dev/null; then
@@ -49,7 +52,7 @@ jobs:
       - name: Run extractor
         id: extract
         continue-on-error: true
-        run: npm run extract -- --config ./config.json --fail-on-diagnostics
+        run: node dist/cli.js extract --config ./config.json --fail-on-diagnostics
 
       - name: Upload extractor artifacts for debugging
         if: steps.extract.outcome != 'success'
@@ -77,7 +80,7 @@ jobs:
       - name: Build semantic API diff
         if: steps.changes.outputs.changed == 'true'
         run: |
-          npx tsx src/semantic-diff.ts \
+          node dist/cli.js semantic-diff \
             --previous "$RUNNER_TEMP/previous-typesense-api-spec.json" \
             --next output/typesense_api_spec.json \
             --json-output "$RUNNER_TEMP/typesense-api-diff.json" \
@@ -87,16 +90,18 @@ jobs:
         if: steps.changes.outputs.changed == 'true'
         id: semantic_diff
         run: |
-          node -e "const fs=require('node:fs'); const crypto=require('node:crypto'); const summary=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + '/typesense-api-diff.json','utf8')); const diffSource=JSON.stringify(summary); const hash=crypto.createHash('sha256').update(diffSource).digest('hex').slice(0, 12); fs.appendFileSync(process.env.GITHUB_OUTPUT, 'changed=' + String(summary.changed) + '\n'); fs.appendFileSync(process.env.GITHUB_OUTPUT, 'hash=' + hash + '\n');"
+          jq -r '"changed=\(.changed)"' "$RUNNER_TEMP/typesense-api-diff.json" >> "$GITHUB_OUTPUT"
 
       - name: Commit extracted artifacts
         if: steps.changes.outputs.changed == 'true'
+        id: commit_artifacts
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add output/typesense_api_spec.json output/typesense_api_diagnostics.json
           git commit -m "chore: update extracted Typesense API artifacts"
           git push
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Open OpenAPI update issue
         if: steps.changes.outputs.changed == 'true' && steps.semantic_diff.outputs.changed == 'true'
@@ -106,8 +111,10 @@ jobs:
             const fs = require("node:fs");
             const owner = context.repo.owner;
             const repo = context.repo.repo;
-            const hash = "${{ steps.semantic_diff.outputs.hash }}";
-            const title = `Update openapi.yml for extracted Typesense API changes [${hash}]`;
+            const commitSha = "${{ steps.commit_artifacts.outputs.sha }}";
+            const shortSha = commitSha.slice(0, 12);
+            const commitUrl = `https://github.com/${owner}/${repo}/commit/${commitSha}`;
+            const title = `Update openapi.yml for extracted Typesense API changes [${shortSha}]`;
             const existing = await github.paginate(github.rest.issues.listForRepo, {
               owner,
               repo,
@@ -121,7 +128,8 @@ jobs:
             }
 
             const bodyPath = `${process.env.RUNNER_TEMP}/typesense-api-diff.md`;
-            const body = fs.readFileSync(bodyPath, "utf8");
+            const diffBody = fs.readFileSync(bodyPath, "utf8");
+            const body = [`Commit: ${commitUrl}`, "", diffBody].join("\n");
             await github.rest.issues.create({
               owner,
               repo,

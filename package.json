@@ -15,7 +15,8 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "extract": "tsx src/cli.ts",
+    "extract": "tsx src/cli.ts extract",
+    "semantic-diff": "tsx src/cli.ts semantic-diff",
     "check": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint ."
   },
