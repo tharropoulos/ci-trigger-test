@@ -1,5 +1,4 @@
 {
-  "generatedAt": "2026-04-16T09:46:26.675Z",
   "rootDir": "",
   "routeFile": "src/main/typesense_server.cpp",
   "routes": [
@@ -46,10 +45,52 @@
       "diagnostics": []
     },
     {
+      "method": "GET",
+      "pathTemplate": "/aliases/:alias",
+      "handler": "get_alias",
+      "pathParams": [
+        {
+          "name": "alias",
+          "canonicalPath": "alias",
+          "location": "path",
+          "valueType": "string",
+          "sources": [
+            {
+              "filePath": "https://raw.githubusercontent.com/typesense/typesense/v30/src/core_api.cpp",
+              "line": 2222,
+              "column": 46
+            }
+          ]
+        }
+      ],
+      "queryParams": [],
+      "bodyParams": [],
+      "source": {
+        "filePath": "https://raw.githubusercontent.com/typesense/typesense/v30/src/main/typesense_server.cpp",
+        "line": 49,
+        "column": 5
+      },
+      "diagnostics": []
+    },
+    {
       "method": "PUT",
       "pathTemplate": "/aliases/:alias",
       "handler": "put_upsert_alias",
-      "pathParams": [],
+      "pathParams": [
+        {
+          "name": "alias",
+          "canonicalPath": "alias",
+          "location": "path",
+          "valueType": "string",
+          "sources": [
+            {
+              "filePath": "https://raw.githubusercontent.com/typesense/typesense/v30/src/collection_manager.cpp",
+              "line": 991,
+              "column": 35
+            }
+          ]
+        }
+      ],
       "queryParams": [],
       "bodyParams": [
         {
@@ -459,6 +500,19 @@
               "filePath": "https://raw.githubusercontent.com/typesense/typesense/v30/src/collection_manager.cpp",
               "line": 1843,
               "column": 50
+            }
+          ]
+        },
+        {
+          "name": "fields[]",
+          "canonicalPath": "fields[]",
+          "location": "body",
+          "valueType": "string[]",
+          "sources": [
+            {
+              "filePath": "https://raw.githubusercontent.com/typesense/typesense/v30/src/field.cpp",
+              "line": 486,
+              "column": 24
             }
           ]
         },
